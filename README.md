@@ -1,65 +1,337 @@
-项目代码说明 
+# Multimodal Math Solver
 
-本项目是一个两阶段的 AI 流水线，用于从数学题目图片中提取文本并进行求解。
+A two-stage OCR + LLM pipeline for photo-based mathematical problem recognition and solving.
 
-重要：本项目压缩包已包含所有模型文件，复现时无需联网下载模型。
+本项目用于对数学题图片进行识别与自动求解，采用 **OCR + LLM 两阶段架构**。
 
-阶段一 (OCR): 使用 ./model 目录中的 Ovis2.5-2B 视觉模型进行文字识别。
+## Pipeline
 
-阶段二 (Math): 使用 ./model_math 目录中的 Qwen2.5-Math-1.5B-Instruct 数学模型进行解题。
+```text
+Question Image
+      ↓
+Ovis2.5-2B
+      ↓
+Structured OCR Text
+      ↓
+Qwen2.5-Math-1.5B-Instruct
+      ↓
+Answer Extraction & Formatting
+      ↓
+Final Answer
+```
 
-1. 文件结构
+支持选择题、填空题、计算应用题、数学公式 LaTeX 结构化识别、批量推理、自动答案提取与格式化及基础异常降级处理。
 
-压缩包解压后 (假设目录为 submission)，应包含以下核心文件和目录：
+## 1. Models
 
-submission/
+### OCR / Vision Model
+
+```text
+AIDC-AI/Ovis2.5-2B
+```
+
+模型下载后放置于：
+
+```text
+./model/
+```
+
+### Math Reasoning Model
+
+```text
+Qwen/Qwen2.5-Math-1.5B-Instruct
+```
+
+模型下载后放置于：
+
+```text
+./model_math/
+```
+
+> 模型权重不会上传至 GitHub，请使用仓库中的下载脚本自行下载。
+
+## 2. Project Structure
+
+```text
+multimodal-math-solver/
 │
-├── model/                  # (已包含) OCR 模型文件
-├── model_math/             # (已包含) Math 模型文件
+├── dataset/
+│   ├── images/                 # 测试题图片
+│   ├── input.jsonl             # 测试输入
+│   └── gt.jsonl                # Ground Truth 标准答案
 │
-├── build_env.sh            # 脚本：一键安装 Python 依赖
-├── run.sh                  # 脚本：一键运行代码
+├── model/                      # Ovis2.5-2B（下载后生成）
+├── model_math/                 # Qwen2.5-Math-1.5B-Instruct（下载后生成）
 │
-├── requirements.txt        # Python 依赖包列表
+├── download_ovis_model.sh      # 下载 OCR 模型
+├── download_qwen_math_model.sh # 下载数学推理模型
 │
-├── run.py                  # 主流水线控制脚本
-├── ovis_ocr.py             # 阶段一：OCR 视觉模型代码
-└── qwen_math.py            # 阶段二：Math 数学模型代码
+├── ovis_ocr.py                 # Stage 1：OCR / 图像理解
+├── qwen_math.py                # Stage 2：数学推理与答案提取
+├── run.py                      # 主推理 Pipeline
+├── run.sh                      # Shell 运行入口
+├── build_env.sh                # 环境配置脚本
+├── requirements.txt            # Python 依赖
+├── .gitignore
+└── README.md
+```
 
+## 3. Installation
 
-2. 复现步骤 (核心)
+建议使用 Linux + NVIDIA GPU 环境运行。
 
-请按照以下步骤操作，即可完成复现。
+```bash
+git clone https://github.com/anything051/multimodal-math-solver.git
+cd multimodal-math-solver
+pip install -r requirements.txt
+```
 
-步骤 1: 上传与解压
+如需使用仓库提供的环境脚本：
 
-将 submission.zip 压缩包上传到服务器的任意位置（例如 /root）。
+```bash
+bash build_env.sh
+```
 
-解压缩文件:
+## 4. Download Models
 
-unzip submission.zip
+下载 OCR 模型：
 
+```bash
+bash download_ovis_model.sh
+```
 
-进入项目根目录:
+下载数学推理模型：
 
-cd submission
+```bash
+bash download_qwen_math_model.sh
+```
 
+下载完成后应存在：
 
-步骤 2: 构建环境 (安装依赖)
+```text
+model/
+model_math/
+```
 
-bash build_env.sh 进行环境配置；
-pip install -r requirements.txt 安装依赖；
+## 5. Quick Test
 
+仓库提供小型测试数据集：
 
-步骤 3: 运行代码
+```text
+dataset/
+├── images/
+├── input.jsonl
+└── gt.jsonl
+```
 
-bash run.sh 启动模型推理。
+`dataset/input.jsonl` 每行为一个 JSON 对象，例如：
 
+```json
+{"image": "images/example.jpg", "tag": "选择题"}
+```
 
-脚本将开始运行，并在控制台打印 OCR 和 Math 阶段的进度条。
+`tag` 支持：
 
-3. 结果说明
+```text
+选择题
+填空题
+计算应用题
+```
 
-脚本运行成功后，会在您 run.sh 中指定的 OUTPUT_FILE 路径（例如 /path/to/your/output.jsonl）生成最终的答案文件。
+## 6. Run Test Dataset
 
-该文件的格式为 jsonl，每一行包含原始的 image, tag 字段，以及模型生成的 step (空) 和 answer 字段。
+在项目根目录运行：
+
+```bash
+python run.py "../dataset" "../dataset/input.jsonl" "../dataset/output.jsonl"
+```
+
+程序将依次完成：
+
+```text
+1. 加载测试输入
+2. 图像预处理
+3. Ovis OCR / 视觉理解
+4. OCR 文本后处理
+5. Qwen Math 数学推理
+6. 最终答案提取
+7. 输出 JSONL 文件
+```
+
+## 7. Output Format
+
+输出文件：
+
+```text
+result.jsonl
+```
+
+示例：
+
+```json
+{
+  "image": "images/example.jpg",
+  "tag": "选择题",
+  "step": "",
+  "answer": "B"
+}
+```
+
+填空题和计算应用题会统一格式化为六位小数，例如：
+
+```json
+{
+  "image": "images/example.jpg",
+  "tag": "填空题",
+  "step": "",
+  "answer": "1.000000"
+}
+```
+
+## 8. Ground Truth
+
+`dataset/gt.jsonl` 保存测试集对应的标准答案，可与 `result.jsonl` 对比，用于快速验证推理结果。
+
+## 9. OCR Pipeline
+
+OCR 阶段使用 Ovis2.5-2B。
+
+主要流程：
+
+```text
+Image
+  ↓
+Resize to 1536 × 1536
+  ↓
+RGB Conversion
+  ↓
+Multimodal Inference
+  ↓
+Structured OCR Output
+```
+
+Prompt 约束包括：
+
+- 完整提取题干
+- 提取所有选项
+- 保留数学公式
+- 转换为标准 LaTeX
+- 忽略手写批注
+- 忽略页码、水印等无关信息
+- 固定结构输出
+
+## 10. Math Reasoning Pipeline
+
+OCR 输出传递给 Qwen2.5-Math-1.5B-Instruct。
+
+模型被要求逐步推理，并将最终答案输出到：
+
+```text
+\boxed{}
+```
+
+程序随后自动完成：
+
+```text
+\boxed{} extraction
+        ↓
+Multiple-choice Regex Matching
+        ↓
+LaTeX → Numeric Conversion
+        ↓
+Answer Validation
+        ↓
+Final Formatting
+```
+
+## 11. Batch Inference
+
+当前主流程：
+
+```text
+OCR batch size: 8
+Math batch size: 16
+```
+
+可根据显存大小调整。
+
+## 12. Error Handling
+
+系统包含基础异常处理机制：
+
+- 图片读取失败时生成默认 RGB 图片
+- OCR 推理失败时返回降级标记
+- 数学答案提取失败时保留可解析结果
+- 非法选择题答案进行格式检查
+- 数值结果统一格式化为六位小数
+
+## 13. Requirements
+
+主要依赖：
+
+```text
+Python
+PyTorch
+Transformers
+Accelerate
+Pillow
+qwen-vl-utils
+latex2sympy2
+regex
+tqdm
+```
+
+完整依赖请参考 `requirements.txt`。
+
+## 14. Notes
+
+### Model Weights
+
+模型权重体积较大，不提交到 GitHub。
+
+请运行：
+
+```bash
+bash download_ovis_model.sh
+bash download_qwen_math_model.sh
+```
+
+### Dataset
+
+仓库仅提供少量测试样例，用于：
+
+- Pipeline 测试
+- 项目展示
+- 代码复现验证
+
+不包含完整竞赛评测数据。
+
+### Hardware
+
+建议使用 NVIDIA GPU。
+
+若出现 CUDA OOM，可优先降低 OCR / Math 的 batch size。
+
+## 15. Competition
+
+该项目来源于：
+
+**2025IKCEST第七届“一带一路”国际大数据竞赛暨 第十一届百度&西安交大大数据竞赛 —— 结合大模型的拍照识题与解题赛题**
+
+主要优化包括：
+
+- OCR 模型替换
+- Prompt Engineering
+- 数学公式 LaTeX 规范化
+- Batch Inference
+- Answer Extraction
+- Error Handling
+- Output Validation
+
+实验过程中，算法得分由 `40.0` 提升至 `67.2`，整体提升约 `68%`。
+
+## 16. License
+
+本仓库仅提供项目代码及少量测试数据。
+
+Ovis2.5 和 Qwen2.5-Math 模型权重请遵循各自官方 License。
