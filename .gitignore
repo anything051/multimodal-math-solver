@@ -1,0 +1,31 @@
+# Model weights
+model/
+model_math/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Outputs
+output/
+outputs/
+*.jsonl
+
+# Large files
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Environment
+.env
+venv/
+.venv/
