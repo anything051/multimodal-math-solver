@@ -3,6 +3,10 @@
 A two-stage OCR + LLM pipeline for photo-based mathematical problem recognition and solving.
 
 本项目用于对数学题图片进行识别与自动求解，采用 **OCR + LLM 两阶段架构**。
+该项目来源于：
+
+**2025IKCEST第七届“一带一路”国际大数据竞赛暨 第十一届百度&西安交大大数据竞赛 —— 结合大模型的拍照识题与解题赛题**
+https://aistudio.baidu.com/competition/detail/1337/0/introduction
 
 ## Pipeline
 
